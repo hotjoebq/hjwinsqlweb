@@ -6,6 +6,9 @@ const path = require('path');
 const { DefaultAzureCredential } = require('@azure/identity');
 const { SecretClient } = require('@azure/keyvault-secrets');
 
+// For managed identity SQL access token
+const { AccessToken } = require('@azure/identity');
+
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'views')));
@@ -16,17 +19,17 @@ const keyVaultUrl = `https://${keyVaultName}.vault.azure.net`;
 const credential = new DefaultAzureCredential();
 const secretClient = new SecretClient(keyVaultUrl, credential);
 
+
 let sqlConfig = null;
 
 async function loadSqlConfig() {
-  // Fetch secrets from Key Vault
-  const username = (await secretClient.getSecret('SqlAdminUsername')).value;
-  const password = (await secretClient.getSecret('SqlAdminPassword')).value;
+  // Managed identity authentication for Azure SQL
   sqlConfig = {
-    user: username,
-    password: password,
     server: 'hjdb85-sql-server.hjdb85.internal', // private endpoint
     database: 'hjdb85-sql-db',
+    authentication: {
+      type: 'azure-active-directory-access-token'
+    },
     options: {
       encrypt: true,
       trustServerCertificate: true
@@ -54,7 +57,17 @@ app.post('/query', async (req, res) => {
   let resultHtml = '';
   try {
     if (!sqlConfig) throw new Error('SQL config not loaded');
-    await sql.connect(sqlConfig);
+    // Acquire access token for Azure SQL
+    const accessToken = await credential.getToken('https://database.windows.net/');
+    // Attach token to config
+    const configWithToken = {
+      ...sqlConfig,
+      options: {
+        ...sqlConfig.options,
+        accessToken: accessToken.token
+      }
+    };
+    await sql.connect(configWithToken);
     const result = await sql.query(query);
     resultHtml += '<table border="1"><tr>';
     if (result.recordset.length > 0) {
