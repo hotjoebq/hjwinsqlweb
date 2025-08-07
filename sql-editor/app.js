@@ -1,26 +1,49 @@
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const sql = require('mssql');
 const path = require('path');
+const { DefaultAzureCredential } = require('@azure/identity');
+const { SecretClient } = require('@azure/keyvault-secrets');
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'views')));
 
-// Update these values for your Azure SQL connection
-const config = {
-  user: 'sqladmin',
-  password: 'SWauge11!114',
-  //server: 'hjdb85-sql-server.database.windows.net', // this is using public endpoint
-  server: 'hjdb85-sql-server.hjdb85.internal'  //this is using private endpoint
-  database: 'hjdb85-sql-db',
-  options: {
-    encrypt: true,
-    //The servers's certificate only covers public endpoint, so we need to trust the server certificate
-    //trustServerCertificate: false
-    trustServerCertificate: true
-  }
-};
+// Azure Key Vault and SQL config
+const keyVaultName = 'hjdb85-key-vault';
+const keyVaultUrl = `https://${keyVaultName}.vault.azure.net`;
+const credential = new DefaultAzureCredential();
+const secretClient = new SecretClient(keyVaultUrl, credential);
+
+let sqlConfig = null;
+
+async function loadSqlConfig() {
+  // Fetch secrets from Key Vault
+  const username = (await secretClient.getSecret('SqlAdminUsername')).value;
+  const password = (await secretClient.getSecret('SqlAdminPassword')).value;
+  sqlConfig = {
+    user: username,
+    password: password,
+    server: 'hjdb85-sql-server.hjdb85.internal', // private endpoint
+    database: 'hjdb85-sql-db',
+    options: {
+      encrypt: true,
+      trustServerCertificate: true
+    }
+  };
+}
+
+// Load secrets before starting the server
+loadSqlConfig().then(() => {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log(`SQL Editor app listening on port ${port}`);
+  });
+}).catch(err => {
+  console.error('Failed to load SQL credentials from Key Vault:', err);
+  process.exit(1);
+});
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'index.html'));
@@ -30,7 +53,8 @@ app.post('/query', async (req, res) => {
   const query = req.body.sqlquery;
   let resultHtml = '';
   try {
-    await sql.connect(config);
+    if (!sqlConfig) throw new Error('SQL config not loaded');
+    await sql.connect(sqlConfig);
     const result = await sql.query(query);
     resultHtml += '<table border="1"><tr>';
     if (result.recordset.length > 0) {
