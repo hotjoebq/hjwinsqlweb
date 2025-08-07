@@ -11,11 +11,14 @@ app.use(express.static(path.join(__dirname, 'views')));
 const config = {
   user: 'sqladmin',
   password: 'SWauge11!114',
-  server: 'hjdb85-sql-server.database.windows.net', // or private endpoint DNS
+  //server: 'hjdb85-sql-server.database.windows.net', // this is using public endpoint
+  server: 'hjdb85-sql-server.hjdb85.internal'  //this is using private endpoint
   database: 'hjdb85-sql-db',
   options: {
     encrypt: true,
-    trustServerCertificate: false
+    //The servers's certificate only covers public endpoint, so we need to trust the server certificate
+    //trustServerCertificate: false
+    trustServerCertificate: true
   }
 };
 
