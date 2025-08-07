@@ -23,7 +23,10 @@ let sqlConfig = null;
 
 async function loadSqlConfig() {
   // Managed identity authentication for Azure SQL
+  // NOTE: mssql requires a non-empty user property even for managed identity/Entra ID authentication.
+  // The value is ignored, but must be present.
   sqlConfig = {
+    user: 'azureuser', // Required dummy value for mssql with Entra ID
     server: 'hjdb85-sql-server.hjdb85.internal', // private endpoint
     database: 'hjdb85-sql-db',
     authentication: {
