@@ -6,8 +6,7 @@ const path = require('path');
 const { DefaultAzureCredential } = require('@azure/identity');
 const { SecretClient } = require('@azure/keyvault-secrets');
 
-// For managed identity SQL access token
-const { AccessToken } = require('@azure/identity');
+// ...existing code...
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -59,12 +58,14 @@ app.post('/query', async (req, res) => {
     if (!sqlConfig) throw new Error('SQL config not loaded');
     // Acquire access token for Azure SQL
     const accessToken = await credential.getToken('https://database.windows.net/');
-    // Attach token to config
+    // Attach token to config.authentication.options.token
     const configWithToken = {
       ...sqlConfig,
-      options: {
-        ...sqlConfig.options,
-        accessToken: accessToken.token
+      authentication: {
+        ...sqlConfig.authentication,
+        options: {
+          token: accessToken.token
+        }
       }
     };
     await sql.connect(configWithToken);
