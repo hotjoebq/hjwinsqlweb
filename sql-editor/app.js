@@ -83,7 +83,4 @@ app.post('/query', async (req, res) => {
   `);
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`SQL Editor app listening on port ${port}`);
-});
+// ...existing code...
