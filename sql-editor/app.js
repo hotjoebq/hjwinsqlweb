@@ -22,15 +22,15 @@ const secretClient = new SecretClient(keyVaultUrl, credential);
 let sqlConfig = null;
 
 async function loadSqlConfig() {
-  // Fetch SQL password from Key Vault
-  const secret = await secretClient.getSecret('SqlAdminPassword');
+  // Fetch hjappuser password from Key Vault (store as 'hjappuser-password')
+  const secret = await secretClient.getSecret('SWauge11!114');
   sqlConfig = {
-    user: 'sqladmin',
+    user: 'hjappuser',
     password: secret.value,
-    server: 'hjdb85-sql-server.hjdb85.internal', // private endpoint
-    database: 'hjdb85-sql-db',
+    server: 'hjsqlvm85', // or use the private IP or DNS name of your SQL Server VM
+    database: 'hjsqleditor', // update if your DB name is different
     options: {
-      encrypt: true,
+      encrypt: false, // set to true for Azure SQL PaaS, false for SQL VM
       trustServerCertificate: true
     }
   };
