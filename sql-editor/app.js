@@ -23,7 +23,7 @@ let sqlConfig = null;
 
 async function loadSqlConfig() {
   // Fetch hjappuser password from Key Vault (store as 'hjappuser-password')
-  const secret = await secretClient.getSecret('SWauge11!114');
+  const secret = await secretClient.getSecret('hjappuser-password');
   sqlConfig = {
     user: 'hjappuser',
     password: secret.value,
