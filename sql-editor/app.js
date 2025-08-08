@@ -12,26 +12,23 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'views')));
 
-// Azure Key Vault and SQL config
+
+// Azure Key Vault and SQL config for SQL Authentication
 const keyVaultName = 'hjdb85-key-vault';
 const keyVaultUrl = `https://${keyVaultName}.vault.azure.net`;
 const credential = new DefaultAzureCredential();
 const secretClient = new SecretClient(keyVaultUrl, credential);
 
-
 let sqlConfig = null;
 
 async function loadSqlConfig() {
-  // Managed identity authentication for Azure SQL
-  // NOTE: mssql requires a non-empty user property even for managed identity/Entra ID authentication.
-  // The value is ignored, but must be present.
+  // Fetch SQL password from Key Vault
+  const secret = await secretClient.getSecret('SqlAdminPassword');
   sqlConfig = {
-    user: 'azureuser', // Required dummy value for mssql with Entra ID
+    user: 'sqladmin',
+    password: secret.value,
     server: 'hjdb85-sql-server.hjdb85.internal', // private endpoint
     database: 'hjdb85-sql-db',
-    authentication: {
-      type: 'azure-active-directory-access-token'
-    },
     options: {
       encrypt: true,
       trustServerCertificate: true
@@ -54,24 +51,13 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'index.html'));
 });
 
+
 app.post('/query', async (req, res) => {
   const query = req.body.sqlquery;
   let resultHtml = '';
   try {
     if (!sqlConfig) throw new Error('SQL config not loaded');
-    // Acquire access token for Azure SQL
-    const accessToken = await credential.getToken('https://database.windows.net/');
-    // Attach token to config.authentication.options.token
-    const configWithToken = {
-      ...sqlConfig,
-      authentication: {
-        ...sqlConfig.authentication,
-        options: {
-          token: accessToken.token
-        }
-      }
-    };
-    await sql.connect(configWithToken);
+    await sql.connect(sqlConfig);
     const result = await sql.query(query);
     resultHtml += '<table border="1"><tr>';
     if (result.recordset.length > 0) {
